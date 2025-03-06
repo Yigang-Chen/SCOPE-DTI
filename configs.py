@@ -21,8 +21,8 @@ _C.PROTEIN.PADDING = True
 _C.PROTEIN.MAX_LENGTH = 2000
 
 _C.PROTEIN.GRAPH = CN()
-_C.PROTEIN.GRAPH.COORD_PATH = "/share/home/grp-huangxd/chenyigang/data/pped_alphafold/unip_cords.pkl" # path of protein coordinates file
-_C.PROTEIN.GRAPH.PATH = "protein_graph.pkl" # path to save protein graph
+_C.PROTEIN.GRAPH.COORD_PATH = "data/demo_unip_cords.pkl" # path of protein coordinates file
+_C.PROTEIN.GRAPH.PATH = "data/protein_graph.pkl" # path to save protein graph
 _C.PROTEIN.GRAPH.EDGE_CUTOFF = 10
 _C.PROTEIN.GRAPH.NUM_KNN = 5
 _C.PROTEIN.GRAPH.NUM_LAYER = 4
@@ -31,7 +31,7 @@ _C.PROTEIN.GRAPH.FC_BIAS = True
 # SOLVER
 _C.SOLVER = CN()
 _C.SOLVER.MAX_EPOCH = 70
-_C.SOLVER.BATCH_SIZE = 96
+_C.SOLVER.BATCH_SIZE = 16
 _C.SOLVER.NUM_WORKERS = 16 # number of workers for data loading
 _C.SOLVER.LR = 5e-5
 _C.SOLVER.SEED = 3076
@@ -55,9 +55,9 @@ _C.BCN.HEADS = 2
 
 # data
 _C.DATA = CN()
-_C.DATA.TRAIN = "/share/home/grp-huangxd/chenyigang/DTI-Project/data/runs/20240921_114807/split/train_3d.parquet"
-_C.DATA.VAL = "/share/home/grp-huangxd/chenyigang/DTI-Project/data/runs/20240921_114807/split/val_3d.parquet"
-_C.DATA.TEST = "/share/home/grp-huangxd/chenyigang/DTI-Project/data/runs/20240921_114807/split/test_3d.parquet"
+_C.DATA.TRAIN = "data/demo_data/train.parquet"
+_C.DATA.VAL = "data/demo_data/val.parquet"
+_C.DATA.TEST = "data/demo_data/test.parquet"
 
 def get_cfg_defaults():
     return _C.clone()

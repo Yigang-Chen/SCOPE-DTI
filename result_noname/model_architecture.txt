@@ -1,0 +1,126 @@
+Scope(
+  (drug_extractor): DrugGVPModel(
+    (node_layer_norm): LayerNorm(
+      (scalar_norm): LayerNorm((74,), eps=1e-05, elementwise_affine=True)
+    )
+    (node_gvp): GVP(
+      (wh): Linear(in_features=1, out_features=64, bias=False)
+      (ws): Linear(in_features=138, out_features=320, bias=True)
+      (wv): Linear(in_features=64, out_features=64, bias=False)
+    )
+    (edge_layer_norm): LayerNorm(
+      (scalar_norm): LayerNorm((16,), eps=1e-05, elementwise_affine=True)
+    )
+    (edge_gvp): GVP(
+      (wh): Linear(in_features=1, out_features=1, bias=False)
+      (ws): Linear(in_features=17, out_features=32, bias=True)
+      (wv): Linear(in_features=1, out_features=1, bias=False)
+    )
+    (layers): ModuleList(
+      (0-2): 3 x GVPConvLayer(
+        (conv): GVPConv()
+        (norm): ModuleList(
+          (0-1): 2 x LayerNorm(
+            (scalar_norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+        (dropout): ModuleList(
+          (0-1): 2 x Dropout(
+            (sdropout): Dropout(p=0.1, inplace=False)
+            (vdropout): _VDropout()
+          )
+        )
+        (ff_func): Sequential(
+          (0): GVP(
+            (wh): Linear(in_features=64, out_features=128, bias=False)
+            (ws): Linear(in_features=448, out_features=1280, bias=True)
+            (wv): Linear(in_features=128, out_features=128, bias=False)
+          )
+          (1): GVP(
+            (wh): Linear(in_features=128, out_features=128, bias=False)
+            (ws): Linear(in_features=1408, out_features=320, bias=True)
+            (wv): Linear(in_features=128, out_features=64, bias=False)
+          )
+        )
+      )
+    )
+    (output_layer_norm): LayerNorm(
+      (scalar_norm): LayerNorm((320,), eps=1e-05, elementwise_affine=True)
+    )
+    (output_gvp): GVP(
+      (wh): Linear(in_features=64, out_features=64, bias=False)
+      (ws): Linear(in_features=384, out_features=320, bias=True)
+    )
+  )
+  (protein_featurizer): ProteinGCN(
+    (convs): ModuleList(
+      (0): HeteroGraphConv(
+        (mods): ModuleDict(
+          (knn_edge): GraphConv(in=7, out=85, normalization=both, activation=None)
+          (r_sphere_edge): GraphConv(in=7, out=85, normalization=both, activation=None)
+          (seq_edge): GraphConv(in=7, out=85, normalization=both, activation=None)
+        )
+      )
+      (1): HeteroGraphConv(
+        (mods): ModuleDict(
+          (knn_edge): GraphConv(in=85, out=163, normalization=both, activation=None)
+          (r_sphere_edge): GraphConv(in=85, out=163, normalization=both, activation=None)
+          (seq_edge): GraphConv(in=85, out=163, normalization=both, activation=None)
+        )
+      )
+      (2): HeteroGraphConv(
+        (mods): ModuleDict(
+          (knn_edge): GraphConv(in=163, out=241, normalization=both, activation=None)
+          (r_sphere_edge): GraphConv(in=163, out=241, normalization=both, activation=None)
+          (seq_edge): GraphConv(in=163, out=241, normalization=both, activation=None)
+        )
+      )
+      (3): HeteroGraphConv(
+        (mods): ModuleDict(
+          (knn_edge): GraphConv(in=241, out=320, normalization=both, activation=None)
+          (r_sphere_edge): GraphConv(in=241, out=320, normalization=both, activation=None)
+          (seq_edge): GraphConv(in=241, out=320, normalization=both, activation=None)
+        )
+      )
+    )
+    (bns): ModuleList(
+      (0): BatchNorm1d(85, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (1): BatchNorm1d(163, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): BatchNorm1d(241, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (3): BatchNorm1d(320, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+    (fcs): ModuleList(
+      (0): Linear(in_features=85, out_features=85, bias=True)
+      (1): Linear(in_features=163, out_features=163, bias=True)
+      (2): Linear(in_features=241, out_features=241, bias=True)
+      (3): Linear(in_features=320, out_features=320, bias=True)
+    )
+  )
+  (bcn): BANLayer(
+    (v_net): FCNet(
+      (main): Sequential(
+        (0): Linear(in_features=320, out_features=768, bias=True)
+        (1): ReLU()
+        (2): Dropout(p=0.2, inplace=False)
+      )
+    )
+    (q_net): FCNet(
+      (main): Sequential(
+        (0): Linear(in_features=320, out_features=768, bias=True)
+        (1): ReLU()
+        (2): Dropout(p=0.2, inplace=False)
+      )
+    )
+    (p_net): AvgPool1d(kernel_size=(3,), stride=(3,), padding=(0,))
+    (bn): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  )
+  (mlp_classifier): MLPDecoder(
+    (fc1): Linear(in_features=256, out_features=128, bias=True)
+    (bn1): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc2): Linear(in_features=128, out_features=128, bias=True)
+    (bn2): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc3): Linear(in_features=128, out_features=64, bias=True)
+    (bn3): BatchNorm1d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc4): Linear(in_features=64, out_features=1, bias=True)
+  )
+)
