@@ -22,7 +22,7 @@ _C.PROTEIN.MAX_LENGTH = 2000
 
 _C.PROTEIN.GRAPH = CN()
 _C.PROTEIN.GRAPH.COORD_PATH = "data/demo_unip_cords.pkl" # path of protein coordinates file
-_C.PROTEIN.GRAPH.PATH = "data/protein_graph.pkl" # path to save protein graph
+_C.PROTEIN.GRAPH.PATH = "data/demo_protein_graph.pkl" # path to save protein graph
 _C.PROTEIN.GRAPH.EDGE_CUTOFF = 10
 _C.PROTEIN.GRAPH.NUM_KNN = 5
 _C.PROTEIN.GRAPH.NUM_LAYER = 4
