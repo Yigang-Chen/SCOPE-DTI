@@ -17,12 +17,14 @@ conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=
 conda install pyg=2.5.2 -c pyg
 conda install -c dglteam/label/th22_cu118 dgl
 conda install -c conda-forge rdkit==2024.03.5
+conda install pyarrow
+conda install tensorboard
 
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.2.0+cu118.html
 pip install dgllife==0.3.2
-pip install -U scikit-learn
 pip install yacs
 pip install prettytable
+# make sure numpy=1.x
 ```
 
 We also recommended you to try micromamba to replace conda.
