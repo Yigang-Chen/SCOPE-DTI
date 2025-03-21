@@ -2,7 +2,15 @@
 
 ## Introduction
 
-This repository contains the PyTorch implementation of **SCOPE-DTI** framework, as described in our paper "[**SCOPE-DTI**: **S**emi-Inductive Dataset **C**onstruction and Framework **O**ptimization for **P**ractical Usability **E**nhancement in Deep Learning-Based **D**rug **T**arget **I**nteraction Prediction](https://example.com)". The SCOPE-DTI framework is a unified framework that integrates a large-scale, well-balanced semi-inductive human DTI dataset with advanced deep learning model. The **​SCOPE​ dataset** is publicly available and can be downloaded from https://awi.cuhk.edu.cn/SCOPE/. If you wish to use ​SCOPE-DTI​ for y**our own prediction tasks**, we recommend visiting [Lightweight-SCOPE-DTI-for-Inference](https://github.com/Yigang-Chen/Lightweight-SCOPE-DTI-for-Inference), a **lightweight version of ​SCOPE-DTI**​ that includes a well-prepared prediction pipeline for easier deployment.
+> We also host a web interface that provides up to 20 minutes computati
+
+This repository contains the PyTorch implementation of **SCOPE-DTI** framework, as described in our paper "[**SCOPE-DTI**: **S**emi-Inductive Dataset **C**onstruction and Framework **O**ptimization for **P**ractical Usability **E**nhancement in Deep Learning-Based **D**rug **T**arget **I**nteraction Prediction](https://example.com)".
+
+The SCOPE-DTI framework is a unified framework that integrates a large-scale, well-balanced semi-inductive human DTI dataset with advanced deep learning model. A **web-based demo** of **SCOPE-DTI** (SCOPE-Web) at https://awi.cuhk.edu.cn/SCOPE, along with the publicly available **SCOPE dataset**, which can be downloaded from https://awi.cuhk.edu.cn/SCOPE/downloads.
+
+If you wish to use SCOPE-DTI for your **own prediction tasks**, we recommend visiting [Lightweight-SCOPE-DTI-for-Inference](https://github.com/Yigang-Chen/Lightweight-SCOPE-DTI-for-Inference), a **lightweight version of SCOPE-DTI** that includes a well-prepared prediction pipeline for easier deployment.
+
+Meanwhile, for a **ready-to-use deployment**, we provide a **Docker container**: https://hub.docker.com/r/zcorn/scope_web, which is the same as the SCOPE-Web stock version available at https://awi.cuhk.edu.cn/SCOPE/. This pre-configured environment allows experimental biologists to quickly set up and run **SCOPE-DTI** for inference.
 
 ## Framework
 ![SCOPE-DTI](./Model_v8.png)
