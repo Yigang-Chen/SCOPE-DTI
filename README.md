@@ -54,7 +54,7 @@ The `main.py` and `dataloader.py` takes the first running argument as the path o
 
 The protein coordination files are downloaded from Alphafold database. The download links are in the form of `https://alphafold.ebi.ac.uk/files/<UNIPROT_ID>-F1-model_v4.pdb` 
 
-`unip_cords.pkl`: The protein 3D information used in this research. This file is a pandas DataFrame, containing String column `"sequence"` and `"crod"` column, which stores the residue coordination with shape`(L, 3)`, while `L` being the length of the protein sequence. The position of the file is referred as `PROTEIN.GRAPH.COORD_PATH	` in the configuration.
+`unip_cords.pkl`: The protein 3D information used in this research. This file is a pandas DataFrame, containing String column `"sequence"` and `"crod"` column, which stores the residue coordination with shape`(L, 3)`, while `L` being the length of the protein sequence. The position of the file is referred as `PROTEIN.GRAPH.COORD_PATH` in the configuration.
 
 To run the model, you need to configure the requested parameters: 
 
