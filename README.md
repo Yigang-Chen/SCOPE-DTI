@@ -4,7 +4,7 @@
 
 > We also host a web interface that provides up to 20 minutes computati
 
-This repository contains the PyTorch implementation of **SCOPE-DTI** framework, as described in our paper "[**SCOPE-DTI**: **S**emi-Inductive Dataset **C**onstruction and Framework **O**ptimization for **P**ractical Usability **E**nhancement in Deep Learning-Based **D**rug **T**arget **I**nteraction Prediction](https://example.com)".
+This repository contains the PyTorch implementation of **SCOPE-DTI** framework, as described in our paper "[**SCOPE-DTI**: **S**emi-Inductive Dataset **C**onstruction and Framework **O**ptimization for **P**ractical Usability **E**nhancement in Deep Learning-Based **D**rug **T**arget **I**nteraction Prediction]([arXiv preview](https://arxiv.org/abs/2503.09251))".
 
 The SCOPE-DTI framework is a unified framework that integrates a large-scale, well-balanced semi-inductive human DTI dataset with advanced deep learning model. A **web-based demo** of **SCOPE-DTI** (SCOPE-Web) is hosted at https://awi.cuhk.edu.cn/SCOPE, along with the publicly available **SCOPE dataset**, which can be downloaded from https://awi.cuhk.edu.cn/SCOPE/downloads.
 
