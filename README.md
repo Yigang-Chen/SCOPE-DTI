@@ -2,7 +2,7 @@
 
 ## Introduction
 
-> We also host a web interface that provides up to 20 minutes computati
+> We also host a web interface that provides up to 20 minutes computation
 
 This repository contains the PyTorch implementation of **SCOPE-DTI** framework, as described in our paper "[**SCOPE-DTI**: **S**emi-Inductive Dataset **C**onstruction and Framework **O**ptimization for **P**ractical Usability **E**nhancement in Deep Learning-Based **D**rug **T**arget **I**nteraction Prediction]([arXiv preview](https://arxiv.org/abs/2503.09251))".
 
