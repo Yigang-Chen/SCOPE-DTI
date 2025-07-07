@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 from torch_geometric.data import Batch
+import torch_geometric
 import logging
 import dgl
 
@@ -112,3 +113,89 @@ def _rbf(D, D_min=0., D_max=20., D_count=16, device='cpu'):
 import datetime 
 def print_with_time(*arg,**args):
     print(datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]"), *arg,**args)
+
+# ============= Protein Sequence Encoding =============
+
+CHARPROTSET = {
+    "A": 1,
+    "C": 2,
+    "B": 3,
+    "E": 4,
+    "D": 5,
+    "G": 6,
+    "F": 7,
+    "I": 8,
+    "H": 9,
+    "K": 10,
+    "M": 11,
+    "L": 12,
+    "O": 13,
+    "N": 14,
+    "Q": 15,
+    "P": 16,
+    "S": 17,
+    "R": 18,
+    "U": 19,
+    "T": 20,
+    "W": 21,
+    "V": 22,
+    "Y": 23,
+    "X": 24,
+    "Z": 25,
+}
+
+CHARPROTLEN = 25
+
+def integer_label_protein(sequence, max_length=2000):
+    """
+    Integer encoding for protein string sequence.
+    Args:
+        sequence (str): Protein string sequence.
+        max_length: Maximum encoding length of input protein string.
+    """
+    encoding = np.zeros(max_length)
+    for idx, letter in enumerate(sequence[:max_length]):
+        try:
+            letter = letter.upper()
+            encoding[idx] = CHARPROTSET[letter]
+        except KeyError:
+            logging.warning(
+                f"character {letter} does not exists in sequence category encoding, skip and treat as padding."
+            )
+    return encoding
+
+def sequence_collate_func(batch):
+    """
+    Collate function for sequence mode
+    """
+    d, p, y = zip(*batch)
+    d = Batch.from_data_list(d)
+    p = torch.stack(p)
+    y = torch.tensor(y, dtype=torch.float32)
+    return d, p, y
+
+def get_collate_func(protein_mode):
+    """
+    Get appropriate collate function based on protein mode
+    """
+    if protein_mode == "graph":
+        return graph_collate_func
+    elif protein_mode == "sequence":
+        return sequence_collate_func
+    else:
+        raise ValueError(f"Unsupported protein mode: {protein_mode}")
+
+def validate_protein_mode_config(config):
+    """
+    Validate configuration for protein mode
+    """
+    mode = config.get("PROTEIN", {}).get("MODE", "graph")
+    if mode not in ["graph", "sequence"]:
+        raise ValueError(f"Invalid protein mode: {mode}. Must be 'graph' or 'sequence'")
+    
+    if mode == "graph":
+        coord_path = config.get("PROTEIN", {}).get("GRAPH", {}).get("COORD_PATH", "")
+        if not coord_path or not os.path.exists(coord_path):
+            raise FileNotFoundError(f"Protein coordinate file not found: {coord_path}")
+    
+    return mode

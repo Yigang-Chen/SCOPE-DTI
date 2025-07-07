@@ -108,9 +108,40 @@ class ProteinGCN(nn.Module):
 
         return h  
 
+class ProteinCNN(nn.Module):
+    def __init__(self, embedding_dim, num_filters, kernel_size, max_length=2000, padding=True):
+        super(ProteinCNN, self).__init__()
+        self.max_length = max_length
+        
+        if padding:
+            self.embedding = nn.Embedding(26, embedding_dim, padding_idx=0)
+        else:
+            self.embedding = nn.Embedding(26, embedding_dim)
+        
+        in_ch = [embedding_dim] + num_filters
+        self.in_ch = in_ch[-1]
+        kernels = kernel_size
+        
+        self.conv1 = nn.Conv1d(in_channels=in_ch[0], out_channels=in_ch[1], kernel_size=kernels[0])
+        self.bn1 = nn.BatchNorm1d(in_ch[1])
+        self.conv2 = nn.Conv1d(in_channels=in_ch[1], out_channels=in_ch[2], kernel_size=kernels[1])
+        self.bn2 = nn.BatchNorm1d(in_ch[2])
+        self.conv3 = nn.Conv1d(in_channels=in_ch[2], out_channels=in_ch[3], kernel_size=kernels[2])
+        self.bn3 = nn.BatchNorm1d(in_ch[3])
+
+    def forward(self, v):
+        v = self.embedding(v.long())
+        v = v.transpose(2, 1)
+        v = self.bn1(F.relu(self.conv1(v)))
+        v = self.bn2(F.relu(self.conv2(v)))
+        v = self.bn3(F.relu(self.conv3(v)))
+        v = v.view(v.size(0), v.size(2), -1)
+        return v
+
 class Scope(nn.Module):
     def __init__(self, **config):
         super(Scope, self).__init__()
+        # Extract configuration
         drug_node_in_dim = config["DRUG"]["ATOM_IN_DIM"]
         drug_node_h_dim = config["DRUG"]["ATOM_HIDDEN_DIM"]
         drug_edge_in_dim = config["DRUG"]["EDGE_IN_DIM"]
@@ -126,17 +157,31 @@ class Scope(nn.Module):
 
         protein_emb_dim = config["PROTEIN"]["EMBEDDING_DIM"]
         protein_padding = config["PROTEIN"]["PADDING"]
-        protein_max_length = config["PROTEIN"]["MAX_LENGTH"] #new
-        protein_num_layers = config["PROTEIN"]["GRAPH"]["NUM_LAYER"]
-        protein_fc_bias = config["PROTEIN"]["GRAPH"]["FC_BIAS"]
-
+        protein_max_length = config["PROTEIN"]["MAX_LENGTH"]
+        protein_mode = config["PROTEIN"]["MODE"]
+        
         ban_heads = config["BCN"]["HEADS"]
 
+        # Initialize drug extractor
         self.drug_extractor = DrugGVPModel(node_in_dim=drug_node_in_dim, node_h_dim=drug_node_h_dim,
                                            edge_in_dim=drug_edge_in_dim, edge_h_dim=drug_edge_h_dim,
                                            num_layers=drug_num_layers, drop_rate=drug_drop_rate, max_node=drug_max_node)
 
-        self.protein_featurizer = ProteinGCN(7, protein_emb_dim, num_layers=protein_num_layers, prot_len=protein_max_length, fc_bias=protein_fc_bias)
+        # Initialize protein featurizer based on mode
+        self.protein_mode = protein_mode
+        if protein_mode == "graph":
+            protein_num_layers = config["PROTEIN"]["GRAPH"]["NUM_LAYER"]
+            protein_fc_bias = config["PROTEIN"]["GRAPH"]["FC_BIAS"]
+            self.protein_featurizer = ProteinGCN(7, protein_emb_dim, num_layers=protein_num_layers, 
+                                                 prot_len=protein_max_length, fc_bias=protein_fc_bias)
+        elif protein_mode == "sequence":
+            sequence_char_dim = config["PROTEIN"]["SEQUENCE"]["CHAR_DIM"]
+            sequence_num_filters = config["PROTEIN"]["SEQUENCE"]["NUM_FILTERS"]
+            sequence_kernel_size = config["PROTEIN"]["SEQUENCE"]["KERNEL_SIZE"]
+            self.protein_featurizer = ProteinCNN(sequence_char_dim, sequence_num_filters, sequence_kernel_size,
+                                                 max_length=protein_max_length, padding=protein_padding)
+        else:
+            raise ValueError(f"Unsupported protein mode: {protein_mode}")
 
         assert drug_node_h_dim[0] == protein_emb_dim
         q_dim = protein_emb_dim
@@ -149,14 +194,24 @@ class Scope(nn.Module):
         self.mlp_classifier = MLPDecoder(mlp_in_dim, mlp_hidden_dim, mlp_out_dim, binary=out_binary)
 
     def forward(self, xd, xp):
-
+        # Extract drug features
         v_d = self.drug_extractor(xd)
         v_d = v_d.unsqueeze(1)
 
-        v_p = self.protein_featurizer(xp)
+        # Extract protein features based on mode
+        if self.protein_mode == "graph":
+            # xp is a DGL batched graph
+            v_p = self.protein_featurizer(xp)
+        elif self.protein_mode == "sequence":
+            # xp is a tensor of encoded sequences
+            v_p = self.protein_featurizer(xp)
+        else:
+            raise ValueError(f"Unsupported protein mode: {self.protein_mode}")
         
+        # Bilinear attention
         f, att = self.bcn(v_d, v_p)
 
+        # Final classification
         score = self.mlp_classifier(f)
         return v_d, v_p, f, score
 

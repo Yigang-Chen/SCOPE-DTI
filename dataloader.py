@@ -7,7 +7,7 @@ import torch_geometric
 import torch_cluster
 import torch.utils.data as data
 from dgllife.utils import CanonicalAtomFeaturizer
-from utils import _rbf, _normalize, match_feature_with_key, print_with_time
+from utils import _rbf, _normalize, match_feature_with_key, print_with_time, integer_label_protein
 from graph_utils import build_heterograph
 import os 
 import asyncio
@@ -30,12 +30,30 @@ class ConditionalInitiableDataset(data.Dataset):
     """
     def __init__(self, **config):
         self.config = config
-        self.k_p = config["PROTEIN"]["GRAPH"]["NUM_KNN"]
-        self.r_p = config["PROTEIN"]["GRAPH"]["EDGE_CUTOFF"]
+        self.protein_mode = config["PROTEIN"]["MODE"]
+        
+        # Common protein parameters
         self.l_p = config["PROTEIN"]["MAX_LENGTH"]
+        
+        # Drug parameters
         self.ec_d = config["DRUG"]["EDGE_CUTOFF"]
         self.nr_d = config["DRUG"]["NUM_RDF"]
-        self.protein_graph_path = config["PROTEIN"]["GRAPH"]["PATH"] # example: "PATH/TO/DATA/protein_graph.pkl"
+        
+        # Initialize based on protein mode
+        if self.protein_mode == "graph":
+            self._init_graph_mode()
+        elif self.protein_mode == "sequence":
+            self._init_sequence_mode()
+        else:
+            raise ValueError(f"Unsupported protein mode: {self.protein_mode}")
+            
+        self.drug_data_dict = {}
+    
+    def _init_graph_mode(self):
+        """Initialize for graph mode"""
+        self.k_p = self.config["PROTEIN"]["GRAPH"]["NUM_KNN"]
+        self.r_p = self.config["PROTEIN"]["GRAPH"]["EDGE_CUTOFF"]
+        self.protein_graph_path = self.config["PROTEIN"]["GRAPH"]["PATH"] # example: "PATH/TO/DATA/protein_graph.pkl"
         self.protein_graph_path = os.path.abspath(self.protein_graph_path)[:-4] + \
             f"_k{self.k_p}_r{self.r_p}_l{self.l_p}.pkl" # auto generated path
         if os.path.exists(self.protein_graph_path):
@@ -43,18 +61,23 @@ class ConditionalInitiableDataset(data.Dataset):
                 self.protein_data_dict = pkl.load(f)
         else:
             self.protein_data_dict = {}
-            if not os.path.exists(config["PROTEIN"]["GRAPH"]["PATH"]):
-                print_with_time(f"Protein graph file not found. Please check the path at {config['PROTEIN']['GRAPH']['PATH']}")
+            if not os.path.exists(self.config["PROTEIN"]["GRAPH"]["PATH"]):
+                print_with_time(f"Protein graph file not found. Please check the path at {self.config['PROTEIN']['GRAPH']['PATH']}")
                 print_with_time("Preprocessing is recommended. Run this script with the same config file to preprocess protein data.")
                 print_with_time("Example: \npython dataloader.py config_yaml/default.yaml")
                 print_with_time("The training may be slower than expected...")
-        self.protein_crood_path = config["PROTEIN"]["GRAPH"]["COORD_PATH"]
+        self.protein_crood_path = self.config["PROTEIN"]["GRAPH"]["COORD_PATH"]
         if not os.path.exists(self.protein_crood_path):
             raise FileNotFoundError(f"Protein coordinate file not found at {self.protein_crood_path}")
         else:
             with open(self.protein_crood_path, "rb") as f:
                 self.coords_df = pkl.load(f)
-        self.drug_data_dict = {}
+    
+    def _init_sequence_mode(self):
+        """Initialize for sequence mode"""
+        self.protein_data_dict = {}
+        self.coords_df = None  # Not needed for sequence mode
+        print_with_time("Initialized for sequence mode. Proteins will be processed as sequences.")
 
     def featurize_protein(self, uniprot_id, k, r, l, name=None):
         """
@@ -87,6 +110,35 @@ class ConditionalInitiableDataset(data.Dataset):
         )
         self.protein_data_dict[uniprot_id] = g
         return g
+    
+    def featurize_protein_sequence(self, sequence, uniprot_id=None):
+        """
+        Featurize protein sequence for CNN processing
+        
+        Parameters
+        ----------
+        sequence: str
+            Protein sequence string
+        uniprot_id: str, optional
+            Protein ID for caching
+            
+        Returns
+        -------
+        encoded_sequence: torch.Tensor
+            Encoded protein sequence
+        """
+        if uniprot_id is not None and uniprot_id in self.protein_data_dict:
+            return self.protein_data_dict[uniprot_id]
+        
+        # Encode sequence using integer encoding
+        encoded_seq = integer_label_protein(sequence, max_length=self.l_p)
+        encoded_tensor = torch.tensor(encoded_seq, dtype=torch.float32)
+        
+        # Cache the result
+        if uniprot_id is not None:
+            self.protein_data_dict[uniprot_id] = encoded_tensor
+            
+        return encoded_tensor
     
     def featurize_drug(self, sdf, id=None, name=None, edge_cutoff=4.5, num_rbf=16) -> torch_geometric.data.Data:
         """
@@ -159,9 +211,22 @@ class ConditionalInitiableDataset(data.Dataset):
 class DTIDataset(ConditionalInitiableDataset):
     def __init__(self, list_IDs, df, father):
         print_with_time("Recieved data, length:", len(df))
-        self.df = df[df['target_uniprot_id']\
-                .isin(father.coords_df.index)]\
-            .reset_index(drop=True)
+        
+        # Filter data based on protein mode
+        if father.protein_mode == "graph":
+            # For graph mode, check if protein IDs are in coords_df
+            self.df = df[df['target_uniprot_id']\
+                    .isin(father.coords_df.index)]\
+                .reset_index(drop=True)
+        elif father.protein_mode == "sequence":
+            # For sequence mode, check if sequence column exists
+            if 'sequence' in df.columns or 'target_sequence' in df.columns:
+                self.df = df.reset_index(drop=True)
+            else:
+                raise ValueError("No sequence column found in DataFrame for sequence mode")
+        else:
+            raise ValueError(f"Unsupported protein mode: {father.protein_mode}")
+            
         list_IDs = [i for i in list_IDs if i in df.index]
         self.list_IDs = list_IDs
         self.father = father
@@ -173,11 +238,25 @@ class DTIDataset(ConditionalInitiableDataset):
     def __getitem__(self, index):
         index = self.list_IDs[index]
         row = self.df.iloc[index]
+        
+        # Process drug
         v_d = row['sdf']
         v_d = self.father.featurize_drug(v_d, id=row['drug_chembl_id'])
 
-        v_p = row['target_uniprot_id']
-        v_p = self.father.featurize_protein(v_p, self.father.k_p, self.father.r_p, self.father.l_p)
+        # Process protein based on mode
+        if self.father.protein_mode == "graph":
+            v_p = row['target_uniprot_id']
+            v_p = self.father.featurize_protein(v_p, self.father.k_p, self.father.r_p, self.father.l_p)
+        elif self.father.protein_mode == "sequence":
+            # For sequence mode, get sequence from DataFrame
+            if 'sequence' in row:
+                v_p = self.father.featurize_protein_sequence(row['sequence'], uniprot_id=row.get('target_uniprot_id'))
+            elif 'target_sequence' in row:
+                v_p = self.father.featurize_protein_sequence(row['target_sequence'], uniprot_id=row.get('target_uniprot_id'))
+            else:
+                raise ValueError("No sequence column found in DataFrame. Expected 'sequence' or 'target_sequence'")
+        else:
+            raise ValueError(f"Unsupported protein mode: {self.father.protein_mode}")
 
         y = row["label"]
 

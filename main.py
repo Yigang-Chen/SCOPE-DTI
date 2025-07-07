@@ -4,7 +4,7 @@ from configs import get_cfg_defaults
 import os
 import sys
 from time import time
-from utils import set_seed, graph_collate_func, mkdir, print_with_time
+from utils import set_seed, graph_collate_func, mkdir, print_with_time, get_collate_func
 
 s = time()   # Start time
 
@@ -59,9 +59,10 @@ train_dataset = DTIDataset(df_train.index.values, df_train, father=dataset)
 val_dataset = DTIDataset(df_val.index.values, df_val, father=dataset)
 test_dataset = DTIDataset(df_test.index.values, df_test, father=dataset)
 
+collate_fn = get_collate_func(cfg.PROTEIN.MODE)
 params = {'batch_size': cfg.SOLVER.BATCH_SIZE, 'shuffle': True, 
           'num_workers': cfg.SOLVER.NUM_WORKERS, 'drop_last': True, 
-          'collate_fn': graph_collate_func, 'pin_memory': True}
+          'collate_fn': collate_fn, 'pin_memory': True}
 training_generator = DataLoader(train_dataset, **params)
 params['shuffle'] = False
 params['drop_last'] = False

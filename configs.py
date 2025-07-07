@@ -16,10 +16,12 @@ _C.DRUG.NUM_RDF = 16
 
 # Protein feature extractor
 _C.PROTEIN = CN()
+_C.PROTEIN.MODE = "graph"  # "graph" or "sequence"
 _C.PROTEIN.EMBEDDING_DIM = 320
 _C.PROTEIN.PADDING = True
 _C.PROTEIN.MAX_LENGTH = 2000
 
+# Graph mode configuration
 _C.PROTEIN.GRAPH = CN()
 _C.PROTEIN.GRAPH.COORD_PATH = "data/demo_unip_cords.pkl" # path of protein coordinates file
 _C.PROTEIN.GRAPH.PATH = "data/demo_protein_graph.pkl" # path to save protein graph
@@ -27,6 +29,12 @@ _C.PROTEIN.GRAPH.EDGE_CUTOFF = 10
 _C.PROTEIN.GRAPH.NUM_KNN = 5
 _C.PROTEIN.GRAPH.NUM_LAYER = 4
 _C.PROTEIN.GRAPH.FC_BIAS = True
+
+# Sequence mode configuration
+_C.PROTEIN.SEQUENCE = CN()
+_C.PROTEIN.SEQUENCE.NUM_FILTERS = [128, 128, 128]  # CNN filter numbers
+_C.PROTEIN.SEQUENCE.KERNEL_SIZE = [3, 6, 9]  # CNN kernel sizes
+_C.PROTEIN.SEQUENCE.CHAR_DIM = 128  # Character embedding dimension
 
 # SOLVER
 _C.SOLVER = CN()
