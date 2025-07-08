@@ -199,3 +199,169 @@ def validate_protein_mode_config(config):
             raise FileNotFoundError(f"Protein coordinate file not found: {coord_path}")
     
     return mode
+
+# ============= Data Processing =============
+# reference version
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import os
+from tqdm import tqdm
+
+def calculate_stats(df, name):
+    total_count = len(df)
+    label_0_count = len(df[df['label'] == 0])
+    label_1_count = len(df[df['label'] == 1])
+    unique_smiles_count = df['smiles'].nunique()
+    unique_sequence_count = df['sequence'].nunique()
+    
+    return {
+        "data": name,
+        "total_dti": total_count,
+        "label 0": label_0_count,
+        "label 0 ratio": f"{label_0_count / total_count:.2%}",
+        "label 1": label_1_count,
+        "label 1 ratio": f"{label_1_count / total_count:.2%}",
+        "unique_smiles": unique_smiles_count,
+        "unique_sequence": unique_sequence_count
+    }
+def split_dataset_by_smiles(data_df, save_path, test_size=0.2, val_size=0.1):
+    # Step 1: Split SMILES into training, validation, and test sets
+    all_smiles = data_df['smiles'].unique()
+    train_smiles, temp_smiles = train_test_split(all_smiles, test_size=(test_size + val_size))
+    val_smiles, test_smiles = train_test_split(temp_smiles, test_size=test_size / (test_size + val_size))
+
+    # Step 2: Create dataframes for training, validation, and test sets based on SMILES
+    train_df = data_df[data_df['smiles'].isin(train_smiles)]
+    val_df = data_df[data_df['smiles'].isin(val_smiles)]
+    test_df = data_df[data_df['smiles'].isin(test_smiles)]
+
+    # Step 3: Ensure all sequences in val and test are also present in train
+    val_sequences = set(val_df['sequence'])
+    test_sequences = set(test_df['sequence'])
+
+    # Find sequences missing in train
+    missing_sequences = (val_sequences | test_sequences) - set(train_df['sequence'])
+    
+    if missing_sequences:
+        # Add rows with missing sequences to train_df
+        additional_rows = data_df[data_df['sequence'].isin(missing_sequences)]
+        train_df = pd.concat([train_df, additional_rows])
+
+    # Ensure no SMILES in val and test appear in train
+    train_smiles_set = set(train_df['smiles'])
+    val_df = val_df[~val_df['smiles'].isin(train_smiles_set)]
+    test_df = test_df[~test_df['smiles'].isin(train_smiles_set)]
+    
+    # Validation step to ensure the conditions are met
+    train_sequences_set = set(train_df['sequence'])
+    
+    if not val_sequences.issubset(train_sequences_set):
+        raise ValueError("Validation sequences are not a subset of training sequences.")
+    
+    if not test_sequences.issubset(train_sequences_set):
+        raise ValueError("Test sequences are not a subset of training sequences.")
+    
+    if len(train_smiles_set.intersection(val_df['smiles'])) > 0:
+        raise ValueError("Some SMILES in the validation set are also in the training set.")
+    
+    if len(train_smiles_set.intersection(test_df['smiles'])) > 0:
+        raise ValueError("Some SMILES in the test set are also in the training set.")
+    
+    # 计算每个数据集的统计信息
+    origin_stats = calculate_stats(data_df, "Origin")
+    train_stats = calculate_stats(train_df, "Train")
+    val_stats = calculate_stats(val_df, "Validation")
+    test_stats = calculate_stats(test_df, "Test")
+
+    # 创建 DataFrame 并显示
+    stats_df = pd.DataFrame([origin_stats, train_stats, val_stats, test_stats])
+    print(stats_df.to_string(index=False))
+
+    train_df.to_parquet(os.path.join(save_path, "train.parquet"))
+    val_df.to_parquet(os.path.join(save_path, "val.parquet"))
+    test_df.to_parquet(os.path.join(save_path, "test.parquet"))
+    stats_df.to_csv(os.path.join(save_path, "stats.csv"))
+
+def data_filter(data_df, n, label_ratio=0.7):
+    # Group the DataFrame by 'sequence' and 'label' and count unique 'smiles' for each
+    sequence_counts = data_df.groupby(['sequence', 'label'])['smiles'].nunique().reset_index()
+    sequence_counts.columns = ['sequence', 'label', 'smiles_count']
+    
+    # Pivot the table to get separate columns for each label's smiles count
+    sequence_pivot = sequence_counts.pivot(index='sequence', columns='label', values='smiles_count').fillna(0)
+    sequence_pivot.columns = ['smiles_count_label_0', 'smiles_count_label_1']
+    
+    # Calculate the total smiles count for each sequence
+    sequence_pivot['total_smiles_count'] = sequence_pivot['smiles_count_label_0'] + sequence_pivot['smiles_count_label_1']
+    
+    # Calculate the proportion of smiles for each label
+    sequence_pivot['ratio_label_0'] = sequence_pivot['smiles_count_label_0'] / sequence_pivot['total_smiles_count']
+    sequence_pivot['ratio_label_1'] = sequence_pivot['smiles_count_label_1'] / sequence_pivot['total_smiles_count']
+    
+    # Classify sequences based on the ratio
+    sequence_pivot['category'] = 'Not Predominantly One Label'
+    sequence_pivot.loc[(sequence_pivot['ratio_label_0'] > label_ratio) | 
+                       (sequence_pivot['ratio_label_1'] > label_ratio), 'category'] = 'Predominantly One Label'
+    
+    # Attempt to rescue 'Predominantly One Label' sequences by lowering their ratio
+    rescue_sequences = sequence_pivot[sequence_pivot['category'] == 'Predominantly One Label'].index
+    rescued_data = []
+    
+    for sequence in tqdm(rescue_sequences, desc="Rescuing sequences"):
+        sequence_data = data_df[data_df['sequence'] == sequence]
+        
+        # Calculate current ratios
+        label_0_count = sequence_data[sequence_data['label'] == 0].shape[0]
+        label_1_count = sequence_data[sequence_data['label'] == 1].shape[0]
+        total_count = label_0_count + label_1_count
+        
+        # Determine which label is dominant
+        if label_0_count / total_count > label_ratio:
+            max_label = 0
+            max_count = label_0_count
+            min_count = label_1_count
+        else:
+            max_label = 1
+            max_count = label_1_count
+            min_count = label_0_count
+        
+        # Calculate the number to keep to meet the ratio requirement
+        target_count = min_count * 2
+        number_to_remove = max_count - target_count
+        
+        # Randomly sample data to remove to meet the label ratio
+        if number_to_remove > 0:
+            data_to_keep = pd.concat([
+                sequence_data[sequence_data['label'] != max_label],
+                sequence_data[sequence_data['label'] == max_label].sample(n=max_count - number_to_remove, random_state=42)
+            ])
+        else:
+            data_to_keep = sequence_data
+        
+        # Check if adjustment was successful
+        adjusted_ratio = data_to_keep['label'].value_counts(normalize=True).max()
+        if adjusted_ratio <= label_ratio:
+            rescued_data.append(data_to_keep)
+    
+    # Combine rescued data back into original dataframe
+    if rescued_data:
+        rescued_data_df = pd.concat(rescued_data)
+    else:
+        rescued_data_df = pd.DataFrame(columns=data_df.columns)
+
+    # Filter 'Not Predominantly One Label' sequences
+    not_predominantly_one_label_sequences = sequence_pivot[sequence_pivot['category'] == 'Not Predominantly One Label'].index
+    filtered_data_df = data_df[data_df['sequence'].isin(not_predominantly_one_label_sequences)]
+    
+    # Combine with rescued sequences
+    filtered_data_df = pd.concat([filtered_data_df, rescued_data_df])
+    
+    # Further filter to remove sequences with less than n unique smiles
+    sequence_smiles_counts = filtered_data_df.groupby('sequence')['smiles'].nunique().reset_index()
+    sequence_smiles_counts = sequence_smiles_counts[sequence_smiles_counts['smiles'] >= n]
+    
+    # Keep only the sequences that have at least n unique smiles
+    valid_sequences = sequence_smiles_counts['sequence']
+    final_filtered_df = filtered_data_df[filtered_data_df['sequence'].isin(valid_sequences)]
+
+    return final_filtered_df
