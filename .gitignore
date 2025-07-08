@@ -152,4 +152,7 @@ temp/
 .tmp/
 
 # Project understanding and development files (not for GitHub)
-project_info/ 
+project_info/
+
+# Revision experiments and temporary analysis (not for GitHub)
+revision_experiments/ 
