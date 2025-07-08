@@ -149,4 +149,7 @@ experiments/
 # Temporary files
 tmp/
 temp/
-.tmp/ 
+.tmp/
+
+# Project understanding and development files (not for GitHub)
+project_info/ 
